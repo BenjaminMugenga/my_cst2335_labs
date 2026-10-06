@@ -1,71 +1,133 @@
 import 'package:flutter/material.dart';
 
-/// Starts the application by running the root MYAPP widget.
 void main() {
   runApp(const MyApp());
 }
 
-/// The font size shared by every Text widget on the student info screen.
-///
-/// Change this value while the app is running for example from 30.0 to
-/// 60.0 and save the file to watch Flutter hot-reload the new size.
-
-
-/// The root widget of the whole application.
-///
-/// This is a StatelessWidget because the app itself never changes while it
-/// runs — it builds the MaterialApp once and shows _MyStudentInfo as its
-/// home screen.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  /// Builds the MaterialApp, applies the theme, and sets the home screen
-  /// to the student info page.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Lab 3',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const _MyStudentInfo(),
+      home: const MyHomePage(title: 'Week 3 Layouts'),
     );
   }
 }
 
-/// Shows the student's name and number, the course code, and the lab number.
-///
-/// This is a StatelessWidget because the information it displays — name,
-/// student number and course code — never changes while the program runs.
-class _MyStudentInfo extends StatelessWidget {
-  const _MyStudentInfo();
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
 
-  /// Builds the screen: an APPBar plus a centered Column of Text
-  /// widgets, each drawn at myFontSize.
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  // Style used for the 5 lines of text in the Column
+  static const TextStyle headingStyle =
+  TextStyle(fontSize: 22, fontWeight: FontWeight.bold);
+
+  // Style used for the words drawn on top of the images
+  static const TextStyle overlayStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: FontWeight.bold,
+    backgroundColor: Colors.black54,
+  );
+
+  /// Builds ONE image: a Stack with the circle picture underneath
+  /// and the text on top, placed wherever [position] says.
+  Widget makeImage(String imagePath, String word, AlignmentGeometry position) {
+    return Stack(
+      alignment: position, // Alignment.center or Alignment.bottomCenter
+      children: [
+        CircleAvatar(
+          backgroundImage: AssetImage(imagePath),
+          radius: 45,
+        ),
+        Text(word, style: overlayStyle),
+      ],
+    );
+  }
+
+  /// Builds the title Text + the Row of 4 images.
+  /// Returns a List so we can spread it into the Column with "...",
+  /// which keeps every Text and Row as a direct child of the Column (8 items).
+  List<Widget> makeRow(String title, List<String> images, List<String> words,
+      AlignmentGeometry position) {
+    List<Widget> pictures = [];
+    for (int i = 0; i < images.length; i++) {
+      pictures.add(makeImage(images[i], words[i], position));
+    }
+
+    return [
+      Text(title, style: headingStyle),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: pictures,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    double myFontSize = 20.0;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Flutter Demo Home Page'),
+        title: Text(widget.title),
       ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start, // text on the left
           children: [
-            Text(
-              'My name is: Benjamin Mugenga - 041175488',
-              style: TextStyle(fontSize: myFontSize),
+            // 1
+            const Text('BROWSE CATEGORIES', style: headingStyle),
+            // 2 + 3
+            ...makeRow(
+              'By Meat',
+              [
+                'images/beef.jpg',
+                'images/chicken.jpg',
+                'images/pork.jpg',
+                'images/seafood.jpg'
+              ],
+              ['Beef', 'Chicken', 'Pork', 'Seafood'],
+              Alignment.center, // text in the MIDDLE of the image
             ),
-            Text(
-              'The course is CST2335',
-              style: TextStyle(fontSize: myFontSize),
+            // 4 + 5
+            ...makeRow(
+              'By Course',
+              [
+                'images/Main Dishes.jpg',
+                'images/salad.jpg',
+                'images/sidedish.jpg',
+                'images/crockpot.jpg'
+              ],
+              ['Main Dishes', 'Salad Recipes', 'Side Dishes', 'Crockpot'],
+              Alignment.bottomCenter, // text at the BOTTOM of the image
             ),
-            Text(
-              'Lab Assignment 1',
-              style: TextStyle(fontSize: myFontSize),
+            // 6 + 7
+            ...makeRow(
+              'By Dessert',
+              [
+                'images/icecream.jpg',
+                'images/Brownies.jpg',
+                'images/Pies.jpg',
+                'images/Cookies.jpg'
+              ],
+              ['Ice Cream', 'Brownies', 'Pies', 'Cookies'],
+              Alignment.bottomCenter,
             ),
+            // 8
+            const Text('VIEW ALL RECIPES', style: headingStyle),
           ],
         ),
       ),
