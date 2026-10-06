@@ -1,72 +1,162 @@
 import 'package:flutter/material.dart';
 
-/// Starts the application by running the root MYAPP widget.
 void main() {
   runApp(const MyApp());
 }
 
-/// The font size shared by every Text widget on the student info screen.
-///
-/// Change this value while the app is running for example from 30.0 to
-/// 60.0 and save the file to watch Flutter hot-reload the new size.
-
-
-/// The root widget of the whole application.
-///
-/// This is a StatelessWidget because the app itself never changes while it
-/// runs — it builds the MaterialApp once and shows _MyStudentInfo as its
-/// home screen.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  /// Builds the MaterialApp, applies the theme, and sets the home screen
-  /// to the student info page.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Lab 2',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
-      home: const _MyStudentInfo(),
+      home: const MyHomePage(title: 'Login Page'),
     );
   }
 }
 
-/// Shows the student's name and number, the course code, and the lab number.
-///
-/// This is a StatelessWidget because the information it displays — name,
-/// student number and course code — never changes while the program runs.
-class _MyStudentInfo extends StatelessWidget {
-  const _MyStudentInfo();
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
 
-  /// Builds the screen: an APPBar plus a centered Column of Text
-  /// widgets, each drawn at myFontSize.
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  // Controllers let us read what the user typed
+  late TextEditingController _loginController;
+  late TextEditingController _passwordController;
+
+  // Which picture to show. Starts as the question mark.
+  var imageSource = "images/question-mark.png";
+
+  // NEW: the current language ("en" = English, "fr" = French)
+  String _language = "en";
+
+  // NEW: every piece of text on the screen, in both languages
+  final Map<String, Map<String, String>> _text = {
+    "en": {
+      "title": "Login Page",
+      "loginName": "Login name",
+      "password": "Password",
+      "loginButton": "Login",
+      "switchButton": "Français",
+    },
+    "fr": {
+      "title": "Page de connexion",
+      "loginName": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "loginButton": "Connexion",
+      "switchButton": "English",
+    },
+  };
+
+  // NEW: looks up a word in the current language
+  String t(String key) {
+    return _text[_language]![key]!;
+  }
+
+  // NEW: flips between English and French
+  void _switchLanguage() {
+    setState(() {
+      if (_language == "en") {
+        _language = "fr";
+      } else {
+        _language = "en";
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loginController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _loginController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // Runs when the Login button is pressed
+  void _login() {
+    String password = _passwordController.text;
+    print("Password typed: $password");
+
+    // Change the picture and redraw the screen
+    setState(() {
+      if (password == "good") {
+        imageSource = "images/light-bulb.png";
+      } else {
+        imageSource = "images/stop-sign.png";
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    double myFontSize = 20.0;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Flutter Demo Home Page'),
+        title: Text(t("title")),
+        // NEW: language switch button in the top-right corner
+        actions: [
+          TextButton(
+            onPressed: _switchLanguage,
+            child: Text(t("switchButton")),
+          ),
+        ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'My name is: Benjamin Mugenga - 041175488',
-              style: TextStyle(fontSize: myFontSize),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          // Lets the page scroll if the image doesn't fit
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Login name field
+                TextField(
+                  controller: _loginController,
+                  decoration: InputDecoration(
+                    labelText: t("loginName"),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Password field (hidden text)
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: t("password"),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Login button
+                ElevatedButton(
+                  onPressed: _login,
+                  child: Text(t("loginButton")),
+                ),
+                const SizedBox(height: 16),
+                // The 300 x 300 image
+                Image.asset(
+                  imageSource,
+                  width: 300,
+                  height: 300,
+                ),
+              ],
             ),
-            Text(
-              'The course is CST2335',
-              style: TextStyle(fontSize: myFontSize),
-            ),
-            Text(
-              'Lab Assignment 1',
-              style: TextStyle(fontSize: myFontSize),
-            ),
-          ],
+          ),
         ),
       ),
     );
