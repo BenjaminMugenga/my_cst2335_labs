@@ -1,8 +1,8 @@
 CST2335 Lab 5 - Test Plan
 
 Test 1 - Correct password goes to Profile Page
-  Steps: Launch app. Type login name "Benj" and password "good". Press Login.
-  Expected: Light bulb shows, ProfilePage opens. Text at top and a SnackBar say "Welcome Back Benj".
+  Steps: Launch app. Type login name like Benji and password "good". Press Login.
+  Expected: Light bulb shows, ProfilePage opens. Text at top and a SnackBar say "Welcome Back Benji".
 
 Test 2 - Wrong password stays on Login Page
   Steps: Type any login name and a wrong password (e.g. "bad"). Press Login.
