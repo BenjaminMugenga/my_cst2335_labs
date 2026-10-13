@@ -1,0 +1,60 @@
+CST2335 Lab 4 - Test Plan
+AlertDialog, Snackbar and EncryptedSharedPreferences
+
+Control flows (if/else) in the code:
+  A. _login():         password == "good"  ->  light bulb   / else -> stop sign
+  B. AlertDialog:      "Yes"               ->  save strings / "No" -> clear saved data
+  C. _loadLogin():     both strings saved  ->  fill fields + Snackbar / else -> empty fields, no Snackbar
+  D. _switchLanguage(): English            ->  French       / French -> English
+
+
+Test 1 - First run, nothing saved (C: else)
+  Steps: Uninstall the app from the emulator (or run it for the first time). Run the app.
+  Expected: Login name and Password fields are empty. No Snackbar appears.
+
+Test 2 - Correct password (A: if)
+  Steps: Type any login name and password "good". Press Login.
+  Expected: Light bulb image shows. The "Save login?" AlertDialog appears.
+
+Test 3 - Wrong password (A: else)
+  Steps: Type any login name and a wrong password (e.g. "bad"). Press Login.
+  Expected: Stop sign image shows. The "Save login?" AlertDialog appears.
+
+Test 4 - Press "Yes" to save (B: Yes)
+  Steps: Type login name "benj" and password "good". Press Login. Press "Yes".
+  Expected: Dialog closes. Both strings are saved to EncryptedSharedPreferences.
+
+Test 5 - Saved data is loaded on next start (C: if)
+  Steps: After Test 4, stop the app completely and run it again.
+  Expected: Login name shows "benj", Password field is filled.
+            A Snackbar says "Your previous login name and password have been loaded."
+
+Test 6 - Press "No" to clear (B: No)
+  Steps: Type a login name and password. Press Login. Press "No".
+  Expected: Dialog closes. Saved data in EncryptedSharedPreferences is cleared.
+
+Test 7 - Cleared data is not loaded on next start (C: else)
+  Steps: After Test 6, stop the app completely and run it again.
+  Expected: Both fields are empty. No Snackbar appears.
+
+Test 8 - "Yes" with empty fields (B: Yes, then C: else)
+  Steps: Leave both fields empty. Press Login. Press "Yes". Stop and run the app again.
+  Expected: Empty strings were saved, so the fields stay empty and no Snackbar appears.
+
+Test 9 - "Yes" with only one field filled (B: Yes, then C: else)
+  Steps: Type a login name but leave Password empty. Press Login. Press "Yes".
+         Stop and run the app again.
+  Expected: Both strings must be saved for loading, so fields are empty and no Snackbar appears.
+
+Test 10 - "Yes" overwrites old saved data (B: Yes twice, then C: if)
+  Steps: Save "benj" / "good" with "Yes". Then type "sam" / "bad", press Login, press "Yes".
+         Stop and run the app again.
+  Expected: Fields show "sam" and the new password. Snackbar appears.
+
+Test 11 - Switch to French (D: if)
+  Steps: Press the "Français" button.
+  Expected: Title, labels, button, AlertDialog (title, message, Oui/Non) and Snackbar are in French.
+
+Test 12 - Switch back to English (D: else)
+  Steps: While in French, press the "English" button.
+  Expected: All visible text returns to English.

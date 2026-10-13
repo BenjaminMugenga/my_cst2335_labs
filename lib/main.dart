@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:encrypted_shared_preferences/encrypted_shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 2',
+      title: 'Lab 4',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
@@ -35,10 +36,13 @@ class _MyHomePageState extends State<MyHomePage> {
   // Which picture to show. Starts as the question mark.
   var imageSource = "images/question-mark.png";
 
-  // NEW: the current language ("en" = English, "fr" = French)
+  // The current language ("en" = English, "fr" = French)
   String _language = "en";
 
-  // NEW: every piece of text on the screen, in both languages
+  // Secure storage for the login name and password
+  final EncryptedSharedPreferences _prefs = EncryptedSharedPreferences();
+
+  // Every piece of text on the screen, in both languages
   final Map<String, Map<String, String>> _text = {
     "en": {
       "title": "Login Page",
@@ -46,6 +50,11 @@ class _MyHomePageState extends State<MyHomePage> {
       "password": "Password",
       "loginButton": "Login",
       "switchButton": "Français",
+      "dialogTitle": "Save login?",
+      "dialogMessage": "Would you like to save your login name and password for next time?",
+      "yes": "Yes",
+      "no": "No",
+      "loaded": "Your previous login name and password have been loaded.",
     },
     "fr": {
       "title": "Page de connexion",
@@ -53,15 +62,20 @@ class _MyHomePageState extends State<MyHomePage> {
       "password": "Mot de passe",
       "loginButton": "Connexion",
       "switchButton": "English",
+      "dialogTitle": "Enregistrer la connexion ?",
+      "dialogMessage": "Voulez-vous enregistrer votre nom d'utilisateur et votre mot de passe pour la prochaine fois ?",
+      "yes": "Oui",
+      "no": "Non",
+      "loaded": "Votre nom d'utilisateur et votre mot de passe précédents ont été chargés.",
     },
   };
 
-  // NEW: looks up a word in the current language
+  // Looks up a word in the current language
   String t(String key) {
     return _text[_language]![key]!;
   }
 
-  // NEW: flips between English and French
+  // Flips between English and French
   void _switchLanguage() {
     setState(() {
       if (_language == "en") {
@@ -77,6 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _loginController = TextEditingController();
     _passwordController = TextEditingController();
+    _loadLogin(); // load saved login name and password
   }
 
   @override
@@ -89,7 +104,6 @@ class _MyHomePageState extends State<MyHomePage> {
   // Runs when the Login button is pressed
   void _login() {
     String password = _passwordController.text;
-    print("Password typed: $password");
 
     // Change the picture and redraw the screen
     setState(() {
@@ -99,6 +113,68 @@ class _MyHomePageState extends State<MyHomePage> {
         imageSource = "images/stop-sign.png";
       }
     });
+
+    // Ask if the user wants to save their login
+    _showSaveDialog();
+  }
+
+  // The AlertDialog asking to save the login name and password
+  void _showSaveDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(t("dialogTitle")),
+          content: Text(t("dialogMessage")),
+          actions: [
+            // "No" button: erase saved data
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _clearLogin();
+              },
+              child: Text(t("no")),
+            ),
+            // "Yes" button: save the strings
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _saveLogin();
+              },
+              child: Text(t("yes")),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // "Yes" was pressed: save both strings
+  void _saveLogin() async {
+    await _prefs.setString("loginName", _loginController.text);
+    await _prefs.setString("password", _passwordController.text);
+  }
+
+  // "No" was pressed: erase anything that was saved
+  void _clearLogin() async {
+    await _prefs.clear();
+  }
+  // Runs at startup: load saved strings, if there are any
+  void _loadLogin() async {
+    String savedLogin = await _prefs.getString("loginName");
+    String savedPassword = await _prefs.getString("password");
+
+    // Only fill the fields if something was actually saved
+    if (savedLogin.isNotEmpty && savedPassword.isNotEmpty) {
+      _loginController.text = savedLogin;
+      _passwordController.text = savedPassword;
+
+      // Make sure the page is still on screen before showing the Snackbar
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t("loaded"))),
+      );
+    }
   }
 
   @override
@@ -107,7 +183,6 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(t("title")),
-        // NEW: language switch button in the top-right corner
         actions: [
           TextButton(
             onPressed: _switchLanguage,
@@ -118,7 +193,6 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          // Lets the page scroll if the image doesn't fit
           child: SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
