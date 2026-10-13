@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'DataRepository.dart'; // WEEK 5
+import 'ProfilePage.dart';    // WEEK 5
+import 'Translations.dart';   // WEEK 5
 
 void main() {
   runApp(const MyApp());
@@ -10,18 +13,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 2',
+      title: 'Lab 5',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
-      home: const MyHomePage(title: 'Login Page'),
+      // WEEK 5: two pages, navigated by name (replaces home:)
+      initialRoute: '/loginPage',
+      routes: {
+        '/loginPage': (context) => const MyHomePage(),
+        '/profilePage': (context) => const ProfilePage(),
+      },
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -35,48 +42,14 @@ class _MyHomePageState extends State<MyHomePage> {
   // Which picture to show. Starts as the question mark.
   var imageSource = "images/question-mark.png";
 
-  // NEW: the current language ("en" = English, "fr" = French)
-  String _language = "en";
-
-  // NEW: every piece of text on the screen, in both languages
-  final Map<String, Map<String, String>> _text = {
-    "en": {
-      "title": "Login Page",
-      "loginName": "Login name",
-      "password": "Password",
-      "loginButton": "Login",
-      "switchButton": "Français",
-    },
-    "fr": {
-      "title": "Page de connexion",
-      "loginName": "Nom d'utilisateur",
-      "password": "Mot de passe",
-      "loginButton": "Connexion",
-      "switchButton": "English",
-    },
-  };
-
-  // NEW: looks up a word in the current language
-  String t(String key) {
-    return _text[_language]![key]!;
-  }
-
-  // NEW: flips between English and French
-  void _switchLanguage() {
-    setState(() {
-      if (_language == "en") {
-        _language = "fr";
-      } else {
-        _language = "en";
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
     _loginController = TextEditingController();
     _passwordController = TextEditingController();
+
+    // WEEK 5: start loading the saved profile data as soon as the app opens
+    DataRepository.loadData();
   }
 
   @override
@@ -89,16 +62,23 @@ class _MyHomePageState extends State<MyHomePage> {
   // Runs when the Login button is pressed
   void _login() {
     String password = _passwordController.text;
-    print("Password typed: $password");
 
-    // Change the picture and redraw the screen
-    setState(() {
-      if (password == "good") {
+    if (password == "good") {
+      setState(() {
         imageSource = "images/light-bulb.png";
-      } else {
+      });
+
+      // WEEK 5: remember the login name and go to the second page
+      DataRepository.loginName = _loginController.text;
+      Navigator.pushNamed(context, '/profilePage').then((_) {
+        // When we come back, redraw in case the language was changed
+        setState(() {});
+      });
+    } else {
+      setState(() {
         imageSource = "images/stop-sign.png";
-      }
-    });
+      });
+    }
   }
 
   @override
@@ -106,19 +86,22 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(t("title")),
-        // NEW: language switch button in the top-right corner
+        title: Text(translate("title")),
+        // Language switch button in the top-right corner
         actions: [
           TextButton(
-            onPressed: _switchLanguage,
-            child: Text(t("switchButton")),
+            onPressed: () {
+              setState(() {
+                switchLanguage(); // WEEK 5: from Translations.dart
+              });
+            },
+            child: Text(translate("switchButton")),
           ),
         ],
       ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          // Lets the page scroll if the image doesn't fit
           child: SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -127,7 +110,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 TextField(
                   controller: _loginController,
                   decoration: InputDecoration(
-                    labelText: t("loginName"),
+                    labelText: translate("loginName"),
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -137,7 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    labelText: t("password"),
+                    labelText: translate("password"),
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -145,7 +128,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 // Login button
                 ElevatedButton(
                   onPressed: _login,
-                  child: Text(t("loginButton")),
+                  child: Text(translate("loginButton")),
                 ),
                 const SizedBox(height: 16),
                 // The 300 x 300 image

@@ -1,0 +1,45 @@
+CST2335 Lab 5 - Test Plan
+
+Test 1 - Correct password goes to Profile Page
+  Steps: Launch app. Type login name "Benj" and password "good". Press Login.
+  Expected: Light bulb shows, ProfilePage opens. Text at top and a SnackBar say "Welcome Back Benj".
+
+Test 2 - Wrong password stays on Login Page
+  Steps: Type any login name and a wrong password (e.g. "bad"). Press Login.
+  Expected: Stop sign shows. App stays on Login Page.
+
+Test 3 - Data is saved to EncryptedSharedPreferences
+  Steps: Log in. Type First Name, Last Name, Phone Number, Email address.
+  Expected: Each change calls the listener, which calls DataRepository.saveData().
+
+Test 4 - Data is loaded on next start
+  Steps: After Test 3, stop the app completely. Run it again and log in.
+  Expected: All four TextFields show the values typed in Test 3.
+
+Test 5 - First run with no saved data
+  Steps: Uninstall the app from the emulator. Run and log in.
+  Expected: All four TextFields are empty. No crash.
+
+Test 6 - Telephone button
+  Steps: Type a phone number. Press the phone button.
+  Expected: Phone dialer opens with that number (tel: URL).
+  If no dialer on device: AlertDialog "This URL is not supported on this device".
+
+Test 7 - SMS button
+  Steps: Type a phone number. Press the SMS button.
+  Expected: Messaging app opens to that number (sms: URL).
+  If no messaging app: AlertDialog appears.
+
+Test 8 - Email button
+  Steps: Type an email address. Press the mail button.
+  Expected: Email app opens with the address filled in (mailto: URL).
+  If no email app: AlertDialog appears.
+
+Test 9 - Layout
+  Steps: Open ProfilePage. Rotate the emulator to landscape.
+  Expected: Phone and Email fields shrink to fit beside the buttons (Flexible). No crash.
+
+Test 10 - Translation
+  Steps: Press "Français" on the Login Page, then log in.
+  Expected: All text on both pages, SnackBar and AlertDialog is in French.
+  Press "English" to switch back.
