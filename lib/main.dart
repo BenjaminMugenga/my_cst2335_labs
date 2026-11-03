@@ -1,28 +1,65 @@
 import 'package:flutter/material.dart';
-import 'DataRepository.dart'; // WEEK 5
-import 'ProfilePage.dart';    // WEEK 5
-import 'Translations.dart';   // WEEK 5
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'AppLocalizations.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+/// Holds one contact that goes in the list.
+class Contact {
+  final String firstName;
+  final String lastName;
+  final String phone;
+  final String email;
+
+  Contact(this.firstName, this.lastName, this.phone, this.email);
+}
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  /// Call this from anywhere to switch the app's language.
+  static void setLocale(BuildContext context, Locale newLocale) {
+    _MyAppState? state = context.findAncestorStateOfType<_MyAppState>();
+    state?.changeLanguage(newLocale);
+  }
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('en', 'CA');
+
+  void changeLanguage(Locale newLocale) {
+    setState(() {
+      _locale = newLocale;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 5',
+      title: 'Week 6 Lab',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      // WEEK 5: two pages, navigated by name (replaces home:)
-      initialRoute: '/loginPage',
-      routes: {
-        '/loginPage': (context) => const MyHomePage(),
-        '/profilePage': (context) => const ProfilePage(),
-      },
+      // ----- Translation setup -----
+      locale: _locale,
+      supportedLocales: const [
+        Locale('en', 'CA'),
+        Locale('fr', 'CA'),
+      ],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const MyHomePage(),
     );
   }
 }
@@ -35,49 +72,103 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Controllers let us read what the user typed
-  late TextEditingController _loginController;
-  late TextEditingController _passwordController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
 
-  // Which picture to show. Starts as the question mark.
-  var imageSource = "images/question-mark.png";
+  // The data behind the ListView
+  List<Contact> contacts = [];
 
   @override
   void initState() {
     super.initState();
-    _loginController = TextEditingController();
-    _passwordController = TextEditingController();
-
-    // WEEK 5: start loading the saved profile data as soon as the app opens
-    DataRepository.loadData();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _emailController = TextEditingController();
   }
 
   @override
   void dispose() {
-    _loginController.dispose();
-    _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  // Runs when the Login button is pressed
-  void _login() {
-    String password = _passwordController.text;
+  /// Short helper so we can write t("key") instead of the long version.
+  String t(String key) {
+    return AppLocalizations.of(context)!.translate(key);
+  }
 
-    if (password == "good") {
-      setState(() {
-        imageSource = "images/light-bulb.png";
-      });
+  /// "Enter" button: add the contact, then clear the TextFields.
+  void addContact() {
+    String first = _firstNameController.text.trim();
+    String last = _lastNameController.text.trim();
+    String phone = _phoneController.text.trim();
+    String email = _emailController.text.trim();
 
-      // WEEK 5: remember the login name and go to the second page
-      DataRepository.loginName = _loginController.text;
-      Navigator.pushNamed(context, '/profilePage').then((_) {
-        // When we come back, redraw in case the language was changed
-        setState(() {});
-      });
+    if (first.isEmpty || last.isEmpty || phone.isEmpty || email.isEmpty) {
+      // Path: a field is empty -> do not add, tell the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t('fill_all_fields'))),
+      );
     } else {
+      // Path: all fields filled -> add to list and clear the fields
       setState(() {
-        imageSource = "images/stop-sign.png";
+        contacts.add(Contact(first, last, phone, email));
       });
+      _firstNameController.clear();
+      _lastNameController.clear();
+      _phoneController.clear();
+      _emailController.clear();
+    }
+  }
+
+  /// Long-press on a row: ask if the user wants to delete it.
+  void showDeleteDialog(int index) {
+    Contact contact = contacts[index];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(t('delete_title')),
+          content: Text(
+              '${t('delete_question')} ${contact.firstName} ${contact.lastName}?'),
+          actions: [
+            // YES -> remove the item, close dialog
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  contacts.removeAt(index);
+                });
+                Navigator.pop(dialogContext);
+              },
+              child: Text(t('yes')),
+            ),
+            // NO -> just close dialog, list stays the same
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: Text(t('no')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Switches between English and French.
+  void toggleLanguage() {
+    String current = Localizations.localeOf(context).languageCode;
+    if (current == 'en') {
+      MyApp.setLocale(context, const Locale('fr', 'CA'));
+    } else {
+      MyApp.setLocale(context, const Locale('en', 'CA'));
     }
   }
 
@@ -86,62 +177,92 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(translate("title")),
-        // Language switch button in the top-right corner
+        title: Text(t('app_title')),
+        centerTitle: true,
         actions: [
           TextButton(
-            onPressed: () {
-              setState(() {
-                switchLanguage(); // WEEK 5: from Translations.dart
-              });
-            },
-            child: Text(translate("switchButton")),
+            onPressed: toggleLanguage,
+            child: Text(t('switch_language')),
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Login name field
-                TextField(
-                  controller: _loginController,
-                  decoration: InputDecoration(
-                    labelText: translate("loginName"),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Password field (hidden text)
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: translate("password"),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Login button
-                ElevatedButton(
-                  onPressed: _login,
-                  child: Text(translate("loginButton")),
-                ),
-                const SizedBox(height: 16),
-                // The 300 x 300 image
-                Image.asset(
-                  imageSource,
-                  width: 300,
-                  height: 300,
-                ),
-              ],
-            ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: ListPage(),
+      ),
+    );
+  }
+
+  /// The page with the 4 TextFields, the Enter button and the ListView.
+  // ignore: non_constant_identifier_names
+  Widget ListPage() {
+    return Column(
+      children: [
+        TextField(
+          controller: _firstNameController,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('first_name'),
+            hintText: t('type_here'),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _lastNameController,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('last_name'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('phone'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('email'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: addContact,
+          child: Text(t('enter')),
+        ),
+        const SizedBox(height: 12),
+
+        // Expanded = the list takes the rest of the screen height
+        Expanded(
+          child: contacts.isEmpty
+          // Path: empty list -> show message
+              ? Center(child: Text(t('empty_list')))
+          // Path: list has items -> show ListView
+              : ListView.builder(
+            itemCount: contacts.length,
+            itemBuilder: (BuildContext context, int rowNum) {
+              Contact c = contacts[rowNum];
+              return ListTile(
+                title: Text('${c.firstName} ${c.lastName}'),
+                subtitle: Text('${c.phone} • ${c.email}'),
+                onLongPress: () {
+                  showDeleteDialog(rowNum);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

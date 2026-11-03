@@ -1,0 +1,16 @@
+{
+  "app_title": "Liste de contacts",
+  "first_name": "Prénom",
+  "last_name": "Nom de famille",
+  "phone": "Numéro de téléphone",
+  "email": "Adresse courriel",
+  "type_here": "Tapez ici",
+  "enter": "Entrer",
+  "empty_list": "Il n'y a aucun contact dans la liste",
+  "fill_all_fields": "Veuillez remplir les quatre champs",
+  "delete_title": "Supprimer le contact",
+  "delete_question": "Voulez-vous supprimer",
+  "yes": "Oui",
+  "no": "Non",
+  "switch_language": "English"
+}
