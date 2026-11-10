@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
 import 'AppLocalizations.dart';
+import 'AppDatabase.dart'; // gives us AppDatabase AND the generated Contact class
 
 void main() {
   runApp(const MyApp());
-}
-
-/// Holds one contact that goes in the list.
-class Contact {
-  final String firstName;
-  final String lastName;
-  final String phone;
-  final String email;
-
-  Contact(this.firstName, this.lastName, this.phone, this.email);
 }
 
 class MyApp extends StatefulWidget {
@@ -42,7 +32,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Week 6 Lab',
+      title: 'Week 8 Lab',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -77,6 +67,9 @@ class _MyHomePageState extends State<MyHomePage> {
   late TextEditingController _phoneController;
   late TextEditingController _emailController;
 
+  // The database (opened once when the page is created)
+  late AppDatabase db;
+
   // The data behind the ListView
   List<Contact> contacts = [];
 
@@ -87,6 +80,17 @@ class _MyHomePageState extends State<MyHomePage> {
     _lastNameController = TextEditingController();
     _phoneController = TextEditingController();
     _emailController = TextEditingController();
+
+    db = AppDatabase(); // open the database
+    loadContacts(); // MARK 2: reload what was saved before
+  }
+
+  /// MARK 2: runs SELECT * FROM ContactTable and puts the rows in the list.
+  Future<void> loadContacts() async {
+    List<Contact> saved = await db.getAllContacts().get();
+    setState(() {
+      contacts = saved;
+    });
   }
 
   @override
@@ -95,6 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _lastNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    db.close(); // close the database when the page is destroyed
     super.dispose();
   }
 
@@ -103,8 +108,8 @@ class _MyHomePageState extends State<MyHomePage> {
     return AppLocalizations.of(context)!.translate(key);
   }
 
-  /// "Enter" button: add the contact, then clear the TextFields.
-  void addContact() {
+  /// "Enter" button: save to the database, add to the list, clear the fields.
+  Future<void> addContact() async {
     String first = _firstNameController.text.trim();
     String last = _lastNameController.text.trim();
     String phone = _phoneController.text.trim();
@@ -116,9 +121,18 @@ class _MyHomePageState extends State<MyHomePage> {
         SnackBar(content: Text(t('fill_all_fields'))),
       );
     } else {
-      // Path: all fields filled -> add to list and clear the fields
+      // MARK 1: the generated INSERT function. It returns the new row's id.
+      int newId = await db.saveContact(first, last, phone, email);
+
+      // Keep the id in the list item so we can delete it from the DB later
       setState(() {
-        contacts.add(Contact(first, last, phone, email));
+        contacts.add(Contact(
+          id: newId,
+          firstName: first,
+          lastName: last,
+          phone: phone,
+          email: email,
+        ));
       });
       _firstNameController.clear();
       _lastNameController.clear();
@@ -139,13 +153,15 @@ class _MyHomePageState extends State<MyHomePage> {
           content: Text(
               '${t('delete_question')} ${contact.firstName} ${contact.lastName}?'),
           actions: [
-            // YES -> remove the item, close dialog
+            // YES -> delete from DB, remove from list, close dialog
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                // MARK 3: DELETE FROM ContactTable WHERE id = :id
+                await db.deleteContact(contact.id);
                 setState(() {
                   contacts.removeAt(index);
                 });
-                Navigator.pop(dialogContext);
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: Text(t('yes')),
             ),
