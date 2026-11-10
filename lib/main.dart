@@ -1,104 +1,191 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'AppLocalizations.dart';
+import 'AppDatabase.dart'; // gives us AppDatabase AND the generated Contact class
 
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  /// Call this from anywhere to switch the app's language.
+  static void setLocale(BuildContext context, Locale newLocale) {
+    _MyAppState? state = context.findAncestorStateOfType<_MyAppState>();
+    state?.changeLanguage(newLocale);
+  }
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('en', 'CA');
+
+  void changeLanguage(Locale newLocale) {
+    setState(() {
+      _locale = newLocale;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lab 2',
+      title: 'Week 8 Lab',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Login Page'),
+      // ----- Translation setup -----
+      locale: _locale,
+      supportedLocales: const [
+        Locale('en', 'CA'),
+        Locale('fr', 'CA'),
+      ],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Controllers let us read what the user typed
-  late TextEditingController _loginController;
-  late TextEditingController _passwordController;
+  late TextEditingController _firstNameController;
+  late TextEditingController _lastNameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
 
-  // Which picture to show. Starts as the question mark.
-  var imageSource = "images/question-mark.png";
+  // The database (opened once when the page is created)
+  late AppDatabase db;
 
-  // NEW: the current language ("en" = English, "fr" = French)
-  String _language = "en";
-
-  // NEW: every piece of text on the screen, in both languages
-  final Map<String, Map<String, String>> _text = {
-    "en": {
-      "title": "Login Page",
-      "loginName": "Login name",
-      "password": "Password",
-      "loginButton": "Login",
-      "switchButton": "Français",
-    },
-    "fr": {
-      "title": "Page de connexion",
-      "loginName": "Nom d'utilisateur",
-      "password": "Mot de passe",
-      "loginButton": "Connexion",
-      "switchButton": "English",
-    },
-  };
-
-  // NEW: looks up a word in the current language
-  String t(String key) {
-    return _text[_language]![key]!;
-  }
-
-  // NEW: flips between English and French
-  void _switchLanguage() {
-    setState(() {
-      if (_language == "en") {
-        _language = "fr";
-      } else {
-        _language = "en";
-      }
-    });
-  }
+  // The data behind the ListView
+  List<Contact> contacts = [];
 
   @override
   void initState() {
     super.initState();
-    _loginController = TextEditingController();
-    _passwordController = TextEditingController();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _emailController = TextEditingController();
+
+    db = AppDatabase(); // open the database
+    loadContacts(); // MARK 2: reload what was saved before
+  }
+
+  /// MARK 2: runs SELECT * FROM ContactTable and puts the rows in the list.
+  Future<void> loadContacts() async {
+    List<Contact> saved = await db.getAllContacts().get();
+    setState(() {
+      contacts = saved;
+    });
   }
 
   @override
   void dispose() {
-    _loginController.dispose();
-    _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    db.close(); // close the database when the page is destroyed
     super.dispose();
   }
 
-  // Runs when the Login button is pressed
-  void _login() {
-    String password = _passwordController.text;
-    print("Password typed: $password");
+  /// Short helper so we can write t("key") instead of the long version.
+  String t(String key) {
+    return AppLocalizations.of(context)!.translate(key);
+  }
 
-    // Change the picture and redraw the screen
-    setState(() {
-      if (password == "good") {
-        imageSource = "images/light-bulb.png";
-      } else {
-        imageSource = "images/stop-sign.png";
-      }
-    });
+  /// "Enter" button: save to the database, add to the list, clear the fields.
+  Future<void> addContact() async {
+    String first = _firstNameController.text.trim();
+    String last = _lastNameController.text.trim();
+    String phone = _phoneController.text.trim();
+    String email = _emailController.text.trim();
+
+    if (first.isEmpty || last.isEmpty || phone.isEmpty || email.isEmpty) {
+      // Path: a field is empty -> do not add, tell the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t('fill_all_fields'))),
+      );
+    } else {
+      // MARK 1: the generated INSERT function. It returns the new row's id.
+      int newId = await db.saveContact(first, last, phone, email);
+
+      // Keep the id in the list item so we can delete it from the DB later
+      setState(() {
+        contacts.add(Contact(
+          id: newId,
+          firstName: first,
+          lastName: last,
+          phone: phone,
+          email: email,
+        ));
+      });
+      _firstNameController.clear();
+      _lastNameController.clear();
+      _phoneController.clear();
+      _emailController.clear();
+    }
+  }
+
+  /// Long-press on a row: ask if the user wants to delete it.
+  void showDeleteDialog(int index) {
+    Contact contact = contacts[index];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(t('delete_title')),
+          content: Text(
+              '${t('delete_question')} ${contact.firstName} ${contact.lastName}?'),
+          actions: [
+            // YES -> delete from DB, remove from list, close dialog
+            TextButton(
+              onPressed: () async {
+                // MARK 3: DELETE FROM ContactTable WHERE id = :id
+                await db.deleteContact(contact.id);
+                setState(() {
+                  contacts.removeAt(index);
+                });
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              },
+              child: Text(t('yes')),
+            ),
+            // NO -> just close dialog, list stays the same
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: Text(t('no')),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Switches between English and French.
+  void toggleLanguage() {
+    String current = Localizations.localeOf(context).languageCode;
+    if (current == 'en') {
+      MyApp.setLocale(context, const Locale('fr', 'CA'));
+    } else {
+      MyApp.setLocale(context, const Locale('en', 'CA'));
+    }
   }
 
   @override
@@ -106,59 +193,92 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(t("title")),
-        // NEW: language switch button in the top-right corner
+        title: Text(t('app_title')),
+        centerTitle: true,
         actions: [
           TextButton(
-            onPressed: _switchLanguage,
-            child: Text(t("switchButton")),
+            onPressed: toggleLanguage,
+            child: Text(t('switch_language')),
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          // Lets the page scroll if the image doesn't fit
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Login name field
-                TextField(
-                  controller: _loginController,
-                  decoration: InputDecoration(
-                    labelText: t("loginName"),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Password field (hidden text)
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: t("password"),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Login button
-                ElevatedButton(
-                  onPressed: _login,
-                  child: Text(t("loginButton")),
-                ),
-                const SizedBox(height: 16),
-                // The 300 x 300 image
-                Image.asset(
-                  imageSource,
-                  width: 300,
-                  height: 300,
-                ),
-              ],
-            ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: ListPage(),
+      ),
+    );
+  }
+
+  /// The page with the 4 TextFields, the Enter button and the ListView.
+  // ignore: non_constant_identifier_names
+  Widget ListPage() {
+    return Column(
+      children: [
+        TextField(
+          controller: _firstNameController,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('first_name'),
+            hintText: t('type_here'),
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _lastNameController,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('last_name'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('phone'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            labelText: t('email'),
+            hintText: t('type_here'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: addContact,
+          child: Text(t('enter')),
+        ),
+        const SizedBox(height: 12),
+
+        // Expanded = the list takes the rest of the screen height
+        Expanded(
+          child: contacts.isEmpty
+          // Path: empty list -> show message
+              ? Center(child: Text(t('empty_list')))
+          // Path: list has items -> show ListView
+              : ListView.builder(
+            itemCount: contacts.length,
+            itemBuilder: (BuildContext context, int rowNum) {
+              Contact c = contacts[rowNum];
+              return ListTile(
+                title: Text('${c.firstName} ${c.lastName}'),
+                subtitle: Text('${c.phone} • ${c.email}'),
+                onLongPress: () {
+                  showDeleteDialog(rowNum);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

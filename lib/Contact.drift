@@ -1,0 +1,18 @@
+-- The table that stores every contact.
+-- "AS Contact" tells drift to name the generated Dart class Contact
+CREATE TABLE ContactTable (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL
+) AS Contact;
+
+-- Each named line below becomes a Dart function
+
+saveContact: INSERT INTO ContactTable (first_name, last_name, phone, email)
+             VALUES (:firstName, :lastName, :phone, :email);
+
+getAllContacts: SELECT * FROM ContactTable;
+
+deleteContact: DELETE FROM ContactTable WHERE id = :id;
