@@ -32,7 +32,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Week 8 Lab',
+      title: 'Week 9 Lab',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -73,6 +73,9 @@ class _MyHomePageState extends State<MyHomePage> {
   // The data behind the ListView
   List<Contact> contacts = [];
 
+  // WEEK 9: the contact that was tapped. null = no details page showing.
+  Contact? selectedItem;
+
   @override
   void initState() {
     super.initState();
@@ -82,10 +85,10 @@ class _MyHomePageState extends State<MyHomePage> {
     _emailController = TextEditingController();
 
     db = AppDatabase(); // open the database
-    loadContacts(); // MARK 2: reload what was saved before
+    loadContacts(); // reload what was saved before
   }
 
-  /// MARK 2: runs SELECT * FROM ContactTable and puts the rows in the list.
+  /// Runs SELECT * FROM ContactTable and puts the rows in the list.
   Future<void> loadContacts() async {
     List<Contact> saved = await db.getAllContacts().get();
     setState(() {
@@ -116,15 +119,13 @@ class _MyHomePageState extends State<MyHomePage> {
     String email = _emailController.text.trim();
 
     if (first.isEmpty || last.isEmpty || phone.isEmpty || email.isEmpty) {
-      // Path: a field is empty -> do not add, tell the user
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(t('fill_all_fields'))),
       );
     } else {
-      // MARK 1: the generated INSERT function. It returns the new row's id.
+      // INSERT returns the new row's id
       int newId = await db.saveContact(first, last, phone, email);
 
-      // Keep the id in the list item so we can delete it from the DB later
       setState(() {
         contacts.add(Contact(
           id: newId,
@@ -141,41 +142,18 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  /// Long-press on a row: ask if the user wants to delete it.
-  void showDeleteDialog(int index) {
-    Contact contact = contacts[index];
+  /// WEEK 9 (task 3): delete the selected contact from the DB and the list,
+  /// then hide the details page.
+  Future<void> deleteSelected() async {
+    if (selectedItem == null) return;
+    int idToDelete = selectedItem!.id;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(t('delete_title')),
-          content: Text(
-              '${t('delete_question')} ${contact.firstName} ${contact.lastName}?'),
-          actions: [
-            // YES -> delete from DB, remove from list, close dialog
-            TextButton(
-              onPressed: () async {
-                // MARK 3: DELETE FROM ContactTable WHERE id = :id
-                await db.deleteContact(contact.id);
-                setState(() {
-                  contacts.removeAt(index);
-                });
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-              },
-              child: Text(t('yes')),
-            ),
-            // NO -> just close dialog, list stays the same
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: Text(t('no')),
-            ),
-          ],
-        );
-      },
-    );
+    await db.deleteContact(idToDelete); // DELETE FROM ContactTable WHERE id = :id
+
+    setState(() {
+      contacts.removeWhere((c) => c.id == idToDelete);
+      selectedItem = null; // details disappear
+    });
   }
 
   /// Switches between English and French.
@@ -204,9 +182,36 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(12.0),
-        child: ListPage(),
+        child: reactiveLayout(), // WEEK 9: was ListPage()
       ),
     );
+  }
+
+  /// WEEK 9 (tasks 1 & 2): pick the layout based on screen size.
+  // ignore: non_constant_identifier_names
+  Widget reactiveLayout() {
+    var size = MediaQuery.of(context).size;
+    var width = size.width;
+    var height = size.height;
+
+    if ((width > height) && (width > 720)) {
+      // Landscape / tablet / desktop: list on the left, details on the right
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 1, child: ListPage()),
+          const SizedBox(width: 12),
+          Expanded(flex: 1, child: DetailsPage()),
+        ],
+      );
+    } else {
+      // Phone / portrait: details replace the list
+      if (selectedItem == null) {
+        return ListPage();
+      } else {
+        return DetailsPage();
+      }
+    }
   }
 
   /// The page with the 4 TextFields, the Enter button and the ListView.
@@ -261,9 +266,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // Expanded = the list takes the rest of the screen height
         Expanded(
           child: contacts.isEmpty
-          // Path: empty list -> show message
               ? Center(child: Text(t('empty_list')))
-          // Path: list has items -> show ListView
               : ListView.builder(
             itemCount: contacts.length,
             itemBuilder: (BuildContext context, int rowNum) {
@@ -271,14 +274,71 @@ class _MyHomePageState extends State<MyHomePage> {
               return ListTile(
                 title: Text('${c.firstName} ${c.lastName}'),
                 subtitle: Text('${c.phone} • ${c.email}'),
-                onLongPress: () {
-                  showDeleteDialog(rowNum);
+                selected: selectedItem?.id == c.id,
+                // WEEK 9 (task 1): tap instead of long-press
+                onTap: () {
+                  setState(() {
+                    selectedItem = c;
+                  });
                 },
               );
             },
           ),
         ),
       ],
+    );
+  }
+
+  /// WEEK 9: details of the selected contact, with Delete and Close buttons.
+  // ignore: non_constant_identifier_names
+  Widget DetailsPage() {
+    if (selectedItem == null) {
+      // Landscape with nothing selected: empty right side
+      return const Center(child: Text(''));
+    }
+
+    Contact c = selectedItem!;
+
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '${c.firstName} ${c.lastName}',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text('${t('phone')}: ${c.phone}', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text('${t('email')}: ${c.email}', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            Text('Database id: ${c.id}', style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Task 3: Delete from list AND database
+                ElevatedButton(
+                  onPressed: deleteSelected,
+                  child: const Text('Delete'),
+                ),
+                const SizedBox(width: 16),
+                // Task 4: Close = just set selectedItem back to null
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedItem = null;
+                    });
+                  },
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
